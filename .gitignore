@@ -43,3 +43,16 @@ next-env.d.ts
 # firebase
 firebase-debug.log
 firestore-debug.log
+
+# OpenMultiLogin specific
+/chromium-profiles/
+/user-data/
+/profiles-data/
+*.log
+/logs/
+/temp/
+/cache/
+
+# Puppeteer
+.local-chromium/
+.local-firefox/
