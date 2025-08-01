@@ -1,6 +1,7 @@
 import { PageHeader } from '@/components/layout/page-header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ProxyTable } from '@/components/proxies/proxy-table';
+import { Suspense } from 'react';
+import ClientProxyTable from './proxy-table-client';
 
 export default function ProxiesPage() {
   return (
@@ -17,7 +18,9 @@ export default function ProxiesPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <ProxyTable />
+          <Suspense fallback={<div className="py-12 text-center text-muted-foreground">Carregando proxies...</div>}>
+            <ClientProxyTable />
+          </Suspense>
         </CardContent>
       </Card>
     </div>

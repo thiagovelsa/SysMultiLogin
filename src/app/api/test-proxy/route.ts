@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import type { Proxy } from '@/lib/types';
 import { SocksProxyAgent } from 'socks-proxy-agent';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 
@@ -26,15 +25,15 @@ export async function POST(req: NextRequest) {
         agent = new HttpsProxyAgent(proxyUrl);
     }
     
-    // We use a timeout to prevent the request from hanging indefinitely
+    // Medir latência
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 7000); // 7 seconds timeout
-
+    const start = Date.now();
     const response = await fetch('https://ipinfo.io/json', { 
         agent,
         signal: controller.signal 
     });
-    
+    const latency = Date.now() - start;
     clearTimeout(timeoutId);
 
     if (!response.ok) {
@@ -43,7 +42,17 @@ export async function POST(req: NextRequest) {
 
     const data = await response.json();
 
-    return NextResponse.json({ success: true, data });
+    // Determinar anonimato (simples: se ipinfo.io mostra IP do proxy, assume 'elite')
+    let anonymity = 'desconhecido';
+    if (data && data.org && data.org.toLowerCase().includes('proxy')) {
+      anonymity = 'anonymous';
+    } else if (data && data.hostname && data.hostname.toLowerCase().includes('proxy')) {
+      anonymity = 'anonymous';
+    } else {
+      anonymity = 'elite'; // fallback
+    }
+
+    return NextResponse.json({ success: true, data: { ...data, latency, anonymity } });
 
   } catch (error) {
     console.error('Erro ao testar o proxy:', error);

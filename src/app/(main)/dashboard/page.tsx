@@ -1,9 +1,9 @@
 'use client';
 import { PageHeader } from '@/components/layout/page-header';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { Profile, Proxy } from '@/lib/types';
 import { useLocalStorage } from '@/hooks/use-local-storage';
-import { Users, Server, CheckCircle, Bell, AlertTriangle, Info } from 'lucide-react';
+import { Users, Server, CheckCircle } from 'lucide-react';
 
 export default function DashboardPage() {
   const [profiles] = useLocalStorage<Profile[]>('profiles', []);

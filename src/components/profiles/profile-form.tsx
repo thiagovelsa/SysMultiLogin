@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -35,38 +35,142 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Wand2, RefreshCw } from 'lucide-react';
+
+const fingerprintSchema = z.object({
+  webgl: z.string().optional(),
+  canvas: z.string().optional(),
+  fonts: z.string().optional(),
+  hardwareConcurrency: z.string().optional(),
+  deviceMemory: z.string().optional(),
+  timezone: z.string().optional(),
+  language: z.string().optional(),
+  platform: z.string().optional(),
+  userAgent: z.string().optional(),
+  screenWidth: z.string().optional(),
+  screenHeight: z.string().optional(),
+  colorDepth: z.string().optional(),
+  audioContext: z.string().optional(),
+  plugins: z.string().optional(),
+});
 
 const profileSchema = z.object({
   name: z.string().min(3, { message: 'O nome do perfil deve ter pelo menos 3 caracteres.' }),
   os: z.enum(['windows', 'macos', 'linux'], { required_error: 'Sistema operacional é obrigatório.' }),
   browser: z.enum(['chrome', 'firefox', 'safari'], { required_error: 'Navegador é obrigatório.' }),
   proxyId: z.string().nullable(),
+  fingerprint: fingerprintSchema.optional(),
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
 
-interface ProfileFormProps {
-  profile?: Profile;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}
+const defaultFingerprint = {
+  webgl: '',
+  canvas: '',
+  fonts: '',
+  hardwareConcurrency: '',
+  deviceMemory: '',
+  timezone: '',
+  language: '',
+  platform: '',
+  userAgent: '',
+  screenWidth: '',
+  screenHeight: '',
+  colorDepth: '',
+  audioContext: '',
+  plugins: '',
+};
 
 const defaultFormValues: ProfileFormValues = {
   name: '',
   os: 'windows',
   browser: 'chrome',
   proxyId: null,
+  fingerprint: defaultFingerprint,
 };
 
-export function ProfileForm({ profile, open, onOpenChange }: ProfileFormProps) {
+interface ProfileFormProps {
+  profile?: Profile;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  profiles: Profile[];
+  setProfiles: (profiles: Profile[]) => void;
+}
+
+export function ProfileForm({ profile, open, onOpenChange, profiles, setProfiles }: ProfileFormProps) {
   const { toast } = useToast();
-  const [profiles, setProfiles] = useLocalStorage<Profile[]>('profiles', []);
   const [proxies] = useLocalStorage<Proxy[]>('proxies', []);
+  const [isGeneratingFingerprint, setIsGeneratingFingerprint] = useState(false);
   
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
     defaultValues: defaultFormValues,
   });
+
+  const generateFingerprint = async () => {
+    const os = form.getValues('os');
+    const browser = form.getValues('browser');
+    
+    if (!os || !browser) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro',
+        description: 'Selecione o sistema operacional e navegador primeiro.',
+      });
+      return;
+    }
+
+    setIsGeneratingFingerprint(true);
+    
+    try {
+      const response = await fetch('/api/generate-fingerprint', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ os, browser }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Erro ao gerar fingerprint');
+      }
+
+      const data = await response.json();
+      const fingerprint = data.fingerprint;
+
+      // Atualiza o formulário com o fingerprint gerado
+      form.setValue('fingerprint', {
+        userAgent: fingerprint.userAgent || '',
+        screenWidth: fingerprint.screenWidth?.toString() || '',
+        screenHeight: fingerprint.screenHeight?.toString() || '',
+        colorDepth: fingerprint.colorDepth?.toString() || '',
+        hardwareConcurrency: fingerprint.hardwareConcurrency?.toString() || '',
+        deviceMemory: fingerprint.deviceMemory?.toString() || '',
+        timezone: fingerprint.timezone || '',
+        language: fingerprint.language || '',
+        fonts: fingerprint.fonts || '',
+        plugins: fingerprint.plugins || '',
+        webgl: fingerprint.webgl || '',
+        canvas: fingerprint.canvas || '',
+        audioContext: fingerprint.audioContext || '',
+        platform: os,
+      });
+
+      toast({
+        title: 'Fingerprint Gerado',
+        description: `Fingerprint compatível com ${os}/${browser} foi gerado automaticamente.`,
+      });
+    } catch {
+        toast({
+        variant: 'destructive',
+        title: 'Erro',
+        description: error instanceof Error ? error.message : 'Não foi possível gerar o fingerprint.',
+      });
+    } finally {
+      setIsGeneratingFingerprint(false);
+    }
+  };
 
   useEffect(() => {
     if (open) {
@@ -76,6 +180,7 @@ export function ProfileForm({ profile, open, onOpenChange }: ProfileFormProps) {
             os: profile.os,
             browser: profile.browser,
             proxyId: profile.proxyId || null,
+            fingerprint: profile.fingerprint || defaultFingerprint,
         });
       } else {
         form.reset(defaultFormValues);
@@ -108,7 +213,7 @@ export function ProfileForm({ profile, open, onOpenChange }: ProfileFormProps) {
         });
       }
       onOpenChange(false);
-    } catch (error) {
+    } catch {
       toast({
         variant: 'destructive',
         title: 'Erro',
@@ -153,7 +258,7 @@ export function ProfileForm({ profile, open, onOpenChange }: ProfileFormProps) {
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Selecione um SO" />
-                        </Trigger>
+                        </SelectTrigger>
                       </FormControl>
                       <SelectContent>
                         <SelectItem value="windows">Windows</SelectItem>
@@ -175,7 +280,7 @@ export function ProfileForm({ profile, open, onOpenChange }: ProfileFormProps) {
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Selecione um navegador" />
-                        </Trigger>
+                        </SelectTrigger>
                       </FormControl>
                       <SelectContent>
                         <SelectItem value="chrome">Chrome</SelectItem>
@@ -189,32 +294,159 @@ export function ProfileForm({ profile, open, onOpenChange }: ProfileFormProps) {
               />
             </div>
             
-             <FormField
-                control={form.control}
-                name="proxyId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Proxy (Opcional)</FormLabel>
-                    <Select onValueChange={(value) => field.onChange(value === 'none' ? null : value)} value={field.value || 'none'}>
+            <FormField
+              control={form.control}
+              name="proxyId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Proxy (Opcional)</FormLabel>
+                  <Select onValueChange={(value) => field.onChange(value === 'none' ? null : value)} value={field.value || 'none'}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione um proxy para vincular" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="none">Nenhum</SelectItem>
+                      {proxies.filter(p => p.status === 'active').map(p => (
+                          <SelectItem key={p.id} value={p.id}>{p.alias}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                   <FormDescription>
+                      Vincule um proxy a este perfil para rotear o tráfego. Apenas proxies ativos são listados.
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Seção de Fingerprint */}
+            <div className="space-y-4 border-t pt-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-medium">Impressão Digital</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Configure ou gere automaticamente a impressão digital do navegador
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={generateFingerprint}
+                  disabled={isGeneratingFingerprint}
+                  className="flex items-center gap-2"
+                >
+                  {isGeneratingFingerprint ? (
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Wand2 className="h-4 w-4" />
+                  )}
+                  {isGeneratingFingerprint ? 'Gerando...' : 'Gerar Automaticamente'}
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="fingerprint.userAgent"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>User Agent</FormLabel>
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione um proxy para vincular" />
-                        </Trigger>
+                        <Input placeholder="Mozilla/5.0..." {...field} />
                       </FormControl>
-                      <SelectContent>
-                        <SelectItem value="none">Nenhum</SelectItem>
-                        {proxies.filter(p => p.status === 'active').map(p => (
-                            <SelectItem key={p.id} value={p.id}>{p.alias}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                     <FormDescription>
-                        Vincule um proxy a este perfil para rotear o tráfego. Apenas proxies ativos são listados.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="fingerprint.platform"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Plataforma</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Win32" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <FormField
+                  control={form.control}
+                  name="fingerprint.screenWidth"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Largura da Tela</FormLabel>
+                      <FormControl>
+                        <Input placeholder="1920" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="fingerprint.screenHeight"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Altura da Tela</FormLabel>
+                      <FormControl>
+                        <Input placeholder="1080" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="fingerprint.colorDepth"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Profundidade de Cor</FormLabel>
+                      <FormControl>
+                        <Input placeholder="24" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="fingerprint.timezone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Fuso Horário</FormLabel>
+                      <FormControl>
+                        <Input placeholder="America/Sao_Paulo" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="fingerprint.language"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Idioma</FormLabel>
+                      <FormControl>
+                        <Input placeholder="pt-BR" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
 
             <DialogFooter className="pt-4">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

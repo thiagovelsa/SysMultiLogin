@@ -1,18 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
-import puppeteer from 'puppeteer';
 import { z } from 'zod';
-import type { Profile, Proxy } from '@/lib/types';
-
-// This is a basic mapping, a real implementation would have more robust fingerprinting
-const userAgents = {
-    windows: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-    macos: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-    linux: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-}
+import { launchProfile } from './launch';
 
 const launchSchema = z.object({
-  profile: z.any(), // Using any for simplicity, validation happens on the client
-  proxy: z.any().optional(), // Using any for simplicity
+  profile: z.object({
+    id: z.string(),
+    name: z.string(),
+    os: z.enum(['windows', 'macos', 'linux']),
+    browser: z.enum(['chrome', 'firefox', 'safari']),
+    fingerprint: z.object({
+      userAgent: z.string().optional(),
+      webgl: z.string().optional(),
+      canvas: z.string().optional(),
+      language: z.string().optional(),
+      timezone: z.string().optional(),
+      hardwareConcurrency: z.string().optional(),
+      deviceMemory: z.string().optional(),
+      fonts: z.string().optional(),
+    }).optional(),
+  }),
+  proxy: z.object({
+    id: z.string(),
+    type: z.enum(['http', 'socks5']),
+    host: z.string(),
+    port: z.number(),
+    username: z.string().optional(),
+    password: z.string().optional(),
+  }).optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -20,36 +34,12 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { profile, proxy } = launchSchema.parse(body);
     
-    const launchArgs: string[] = [];
-    if (proxy) {
-        launchArgs.push(`--proxy-server=${proxy.type}://${proxy.host}:${proxy.port}`);
-    }
-
-    const browser = await puppeteer.launch({
-      headless: false, // We want to see the browser
-      args: launchArgs,
-      // executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' // Example for macOS, might need adjustment
-    });
-
-    const page = await browser.newPage();
+    console.log(`Iniciando navegador para o perfil: ${profile.name}`);
     
-    // Set user agent based on profile
-    await page.setUserAgent(userAgents[profile.os as keyof typeof userAgents] || userAgents.windows);
-
-    if (proxy && proxy.username && proxy.password) {
-        await page.authenticate({
-            username: proxy.username,
-            password: proxy.password
-        });
-    }
-
-    // Go to a test page to verify the IP address
-    await page.goto('https://www.whatismybrowser.com/detect/what-is-my-user-agent', { waitUntil: 'domcontentloaded' });
-
-    // When the browser is closed by the user, the promise will resolve.
-    await new Promise(resolve => browser.on('disconnected', resolve));
-
-    return NextResponse.json({ message: 'Sessão do navegador encerrada' });
+    // Chama a função de lançamento do Puppeteer
+    const result = await launchProfile(profile, proxy);
+    
+    return NextResponse.json(result);
   } catch (error) {
     console.error('Erro ao iniciar:', error);
     if (error instanceof z.ZodError) {

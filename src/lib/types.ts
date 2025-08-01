@@ -1,3 +1,22 @@
+export type FingerprintOverrides = {
+  webgl?: string;
+  canvas?: string;
+  fonts?: string[];
+  hardwareConcurrency?: number;
+  deviceMemory?: number;
+  timezone?: string;
+  language?: string;
+  platform?: string;
+  userAgent?: string;
+  screen?: {
+    width: number;
+    height: number;
+    colorDepth: number;
+  };
+  audioContext?: string;
+  plugins?: string[];
+};
+
 export type Profile = {
   id: string;
   name: string;
@@ -6,6 +25,7 @@ export type Profile = {
   proxyId: string | null;
   status?: string;
   coherenceScore: number;
+  fingerprint?: FingerprintOverrides;
 };
 
 export type Proxy = {
@@ -17,4 +37,7 @@ export type Proxy = {
   username?: string;
   password?: string;
   status: 'active' | 'inactive' | 'error' | 'testing';
+  latency?: number; // em ms
+  country?: string;
+  anonymity?: string; // ex: 'elite', 'anonymous', 'transparent'
 };

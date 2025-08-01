@@ -17,7 +17,8 @@ const navItems = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Painel' },
   { href: '/profiles', icon: Users, label: 'Perfis' },
   { href: '/proxies', icon: Server, label: 'Proxies' },
-  { href: '/mimicry', icon: Fingerprint, label: 'Simulação' },
+  { href: '/fingerprint-test', icon: Fingerprint, label: 'Teste de Fingerprint' },
+  { href: '/settings', icon: Settings, label: 'Configurações' },
 ];
 
 export function MainNav() {

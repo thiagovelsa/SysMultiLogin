@@ -1,6 +1,7 @@
 import { PageHeader } from '@/components/layout/page-header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ProfileTable } from '@/components/profiles/profile-table';
+import { Suspense } from 'react';
+import ClientProfileTable from './profile-table-client';
 
 export default function ProfilesPage() {
   return (
@@ -17,7 +18,9 @@ export default function ProfilesPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <ProfileTable />
+          <Suspense fallback={<div className="py-12 text-center text-muted-foreground">Carregando perfis...</div>}>
+            <ClientProfileTable />
+          </Suspense>
         </CardContent>
       </Card>
     </div>

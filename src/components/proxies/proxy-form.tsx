@@ -30,7 +30,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { useLocalStorage } from '@/hooks/use-local-storage';
 import type { Proxy } from '@/lib/types';
 import { Textarea } from '../ui/textarea';
 import { useEffect } from 'react';
@@ -50,18 +49,19 @@ interface ProxyFormProps {
   proxy?: Proxy;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  proxies: Proxy[];
+  setProxies: (proxies: Proxy[]) => void;
 }
 
-export function ProxyForm({ proxy, open, onOpenChange }: ProxyFormProps) {
+export function ProxyForm({ proxy, open, onOpenChange, proxies, setProxies }: ProxyFormProps) {
   const { toast } = useToast();
-  const [proxies, setProxies] = useLocalStorage<Proxy[]>('proxies', []);
   const form = useForm<ProxyFormValues>({
     resolver: zodResolver(proxySchema),
     defaultValues: {
       alias: '',
       type: 'http',
       host: '',
-      port: undefined,
+      port: '',
       username: '',
       password: '',
     },
@@ -73,7 +73,7 @@ export function ProxyForm({ proxy, open, onOpenChange }: ProxyFormProps) {
         alias: proxy.alias || '',
         type: proxy.type || 'http',
         host: proxy.host || '',
-        port: proxy.port || undefined,
+        port: proxy.port ? proxy.port.toString() : '',
         username: proxy.username || '',
         password: proxy.password || '',
       });
@@ -82,7 +82,7 @@ export function ProxyForm({ proxy, open, onOpenChange }: ProxyFormProps) {
         alias: '',
         type: 'http',
         host: '',
-        port: undefined,
+        port: '',
         username: '',
         password: '',
       });
@@ -110,16 +110,46 @@ export function ProxyForm({ proxy, open, onOpenChange }: ProxyFormProps) {
             port: data.port,
             username: data.username,
             password: data.password,
-            status: 'inactive', // Default status for new proxies
+            status: 'testing', // Começa testando
           };
           setProxies([...proxies, newProxy]);
-          toast({
-            title: 'Proxy Salvo',
-            description: 'Sua configuração de proxy foi salva com sucesso.',
-          });
+          // Teste automático após salvar
+          fetch('/api/test-proxy', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newProxy),
+          })
+            .then(res => res.json())
+            .then(result => {
+              setProxies(currentProxies => currentProxies.map(p =>
+                p.id === newProxy.id
+                  ? { ...p, status: result.success ? 'active' : 'error',
+                        latency: result.data?.latency,
+                        country: result.data?.country,
+                        anonymity: result.data?.anonymity }
+                  : p
+              ));
+              toast({
+                title: result.success ? 'Proxy Ativo' : 'Falha no Proxy',
+                description: result.success
+                  ? `Conexão com ${newProxy.alias} bem-sucedida! País: ${result.data?.country}, IP: ${result.data?.ip}`
+                  : result.error || 'Não foi possível conectar ao proxy.',
+                variant: result.success ? undefined : 'destructive',
+              });
+            })
+            .catch(() => {
+              setProxies(currentProxies => currentProxies.map(p =>
+                p.id === newProxy.id ? { ...p, status: 'error' } : p
+              ));
+              toast({
+                variant: 'destructive',
+                title: 'Erro de Conexão',
+                description: 'Ocorreu um erro ao tentar testar o proxy.',
+              });
+            });
       }
       onOpenChange(false);
-    } catch(e) {
+    } catch {
        toast({
         variant: 'destructive',
         title: 'Erro',
@@ -157,7 +187,7 @@ export function ProxyForm({ proxy, open, onOpenChange }: ProxyFormProps) {
                 newProxies.push(newProxy);
              }
            }
-         } catch (e) {
+         } catch {
             // ignore lines that fail to parse
          }
        });
@@ -176,7 +206,7 @@ export function ProxyForm({ proxy, open, onOpenChange }: ProxyFormProps) {
             try {
                 const [host, port, username, password] = parts;
                 form.setValue('host', host);
-                form.setValue('port', parseInt(port, 10));
+                form.setValue('port', port);
                 if (username) form.setValue('username', username);
                 if (password) form.setValue('password', password);
                 if(!form.getValues('alias')){
@@ -186,7 +216,7 @@ export function ProxyForm({ proxy, open, onOpenChange }: ProxyFormProps) {
                     title: 'Preenchido Automaticamente',
                     description: 'Os detalhes do proxy foram preenchidos a partir do texto colado.',
                 });
-            } catch (e) {
+            } catch {
                 // Ignore parse errors, let the user input manually
             }
         }

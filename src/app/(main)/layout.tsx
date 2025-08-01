@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from "react";
 
-const routesToPrefetch = ['/dashboard', '/profiles', '/proxies', '/settings'];
+const routesToPrefetch = ['/dashboard', '/profiles', '/proxies', '/fingerprint-test', '/settings'];
 
 function Prefetcher() {
   const router = useRouter();

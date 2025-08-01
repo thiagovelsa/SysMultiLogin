@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +21,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { ProfileForm } from './profile-form';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Copy } from 'lucide-react';
 
 const osIcons = {
   windows: <Laptop className="h-4 w-4" />,
@@ -39,9 +41,15 @@ export function ProfileTable() {
   const [proxies] = useLocalStorage<Proxy[]>('proxies', []);
   const [launchingProfile, setLaunchingProfile] = useState<string | null>(null);
   const [deletingProfile, setDeletingProfile] = useState<Profile | null>(null);
+  const [isClient, setIsClient] = useState(false);
   const { toast } = useToast();
   const searchParams = useSearchParams();
   const router = useRouter();
+
+  // Evitar erro de hidratação garantindo que o componente renderize o mesmo conteúdo no servidor e cliente
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const isFormOpen = searchParams.has('new') || searchParams.has('edit');
   const editingProfileId = searchParams.get('edit');
@@ -127,6 +135,11 @@ export function ProfileTable() {
     }
   };
 
+  const cloneProfile = (profile: Profile) => {
+    const newProfile = { ...profile, id: crypto.randomUUID(), name: profile.name + ' (Clone)' };
+    setProfiles([...profiles, newProfile]);
+    toast({ title: 'Perfil clonado', description: `O perfil "${profile.name}" foi duplicado com sucesso.` });
+  };
 
   return (
     <>
@@ -144,6 +157,8 @@ export function ProfileTable() {
         open={isFormOpen}
         onOpenChange={handleFormOpenChange}
         profile={editingProfile}
+        profiles={profiles}
+        setProfiles={setProfiles}
       />
       
       <AlertDialog open={!!deletingProfile} onOpenChange={(open) => !open && setDeletingProfile(null)}>
@@ -174,14 +189,20 @@ export function ProfileTable() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {profiles.length === 0 && (
+            {!isClient ? (
+              <TableRow>
+                <TableCell colSpan={5} className="h-24 text-center">
+                  Carregando perfis...
+                </TableCell>
+              </TableRow>
+            ) : profiles.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="h-24 text-center">
                   Nenhum perfil criado ainda.
                 </TableCell>
               </TableRow>
-            )}
-            {profiles.map((profile: Profile) => (
+            ) : (
+              profiles.map((profile: Profile) => (
               <TableRow key={profile.id} className={launchingProfile === profile.id ? 'opacity-50' : ''}>
                 <TableCell className="font-medium">{profile.name}</TableCell>
                 <TableCell>
@@ -197,10 +218,30 @@ export function ProfileTable() {
                   </div>
                 </TableCell>
                 <TableCell>
-                  <Badge variant="secondary" className="flex items-center gap-1.5">
-                    <Server className="h-4 w-4" />
-                    {getProxyAlias(profile.proxyId)}
-                  </Badge>
+                  <TooltipProvider>
+                    <Tooltip delayDuration={100}>
+                      <TooltipTrigger asChild>
+                        <Badge variant="secondary" className="flex items-center gap-1.5">
+                          <Server className="h-4 w-4" />
+                          {getProxyAlias(profile.proxyId)}
+                        </Badge>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="text-xs">
+                        {(() => {
+                          const proxy = getProxyById(profile.proxyId);
+                          if (!proxy) return <span>Nenhum proxy associado</span>;
+                          return (
+                            <div>
+                              <div><b>Status:</b> {proxy.status}</div>
+                              <div><b>Latência:</b> {proxy.latency ? `${proxy.latency} ms` : 'N/A'}</div>
+                              <div><b>País:</b> {proxy.country || 'N/A'}</div>
+                              <div><b>Anonimato:</b> {proxy.anonymity || 'N/A'}</div>
+                            </div>
+                          );
+                        })()}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </TableCell>
                 <TableCell>
                   {profile.status === "Rodando" ? (
@@ -242,14 +283,23 @@ export function ProfileTable() {
                           <Trash2 className="mr-2 h-4 w-4" />
                           Deletar
                         </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => cloneProfile(profile)}>
+                          <Copy className="mr-2 h-4 w-4" />
+                          Clonar Perfil
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
                 </TableCell>
               </TableRow>
-            ))}
+            ))
+            )}
           </TableBody>
         </Table>
       </div>
     </>
   );
+
+}
+
+export default ProfileTable;

@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { HardDriveDownload, HardDriveUpload, Check } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import type { Profile, Proxy } from '@/lib/types';
 
@@ -61,7 +60,7 @@ export function SettingsForm() {
             title: "Backup Concluído",
             description: "Seus dados foram exportados com sucesso.",
         });
-    } catch (error) {
+    } catch {
          toast({
             variant: 'destructive',
             title: "Erro no Backup",

@@ -1,5 +1,5 @@
 import { PageHeader } from '@/components/layout/page-header';
-import { BehaviorForm } from '@/components/mimicry/behavior-form';
+// import { BehaviorForm } from '@/components/mimicry/behavior-form';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function MimicryPage() {
@@ -17,7 +17,7 @@ export default function MimicryPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <BehaviorForm />
+          {/* <BehaviorForm /> */}
         </CardContent>
       </Card>
     </div>
